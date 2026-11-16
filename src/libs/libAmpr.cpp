@@ -1386,6 +1386,10 @@ static int ReadHostFileToGuest(const std::filesystem::path& host_path, uint64_t 
 		if (read == 0) {
 			break;
 		}
+		static const bool subst = std::getenv("KYTY_APP0_SUBST") != nullptr; // KYTY_APP0_SUBST
+		if (subst) [[unlikely]] {
+			LibKernel::FileSystem::ApplyApp0Substs(Common::PathToString(host_path), buffer.data(), read);
+		}
 		std::memcpy(reinterpret_cast<void*>(destination + *bytes_read), buffer.data(), read);
 		*bytes_read += read;
 	}
