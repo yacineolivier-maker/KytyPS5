@@ -3213,6 +3213,14 @@ static void* RunThread(void* arg) {
 	os_thread_id = GetHostThreadId();
 #endif
 	thread->host_thread_id = os_thread_id;
+#if KYTY_PLATFORM == KYTY_PLATFORM_WINDOWS
+	if (!thread->name.empty()) {
+		// The guest thread's name as its Windows thread description (Linux: pthread_setname_np below).
+		wchar_t wide[128] = {};
+		MultiByteToWideChar(CP_UTF8, 0, thread->name.c_str(), -1, wide, 127);
+		SetThreadDescription(GetCurrentThread(), wide);
+	}
+#endif
 #if KYTY_PLATFORM == KYTY_PLATFORM_LINUX
 	if (!thread->name.empty()) {
 #if defined(__APPLE__)
