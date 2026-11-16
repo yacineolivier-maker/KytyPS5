@@ -6,6 +6,7 @@
 #include "common/profiler.h"
 #include "common/stringUtils.h"
 #include "common/threads.h"
+#include "kernel/waitGraph.h" // Astro Bot PC (KYTY_WAIT_GRAPH)
 #include "graphics/guest_gpu/command_processor/commandProcessor.h"
 #include "graphics/guest_gpu/command_processor/pm4Dispatch.h"
 #include "graphics/guest_gpu/hardwareContext.h"
@@ -145,7 +146,13 @@ void GuestGpu::SuspendPoint() {
 	EXIT_IF(IsGpuThread() || CommandScheduler::InDeferredOperation());
 	// Do not hold a queue lock while waiting: asynchronous work may be needed to
 	// finish the preceding graphics frame. The first point returns immediately.
-	m_suspend_point_ready->acquire();
+	LibKernel::WaitGraph::NoteFrame(); // Astro Bot PC (KYTY_WAIT_GRAPH)
+	{
+		// Astro Bot PC (KYTY_WAIT_GRAPH): released by the GPU thread at the previous suspend point.
+		const LibKernel::WaitGraph::WaitScope wait_graph(m_suspend_point_ready.get(),
+		                                                 LibKernel::WaitGraph::Prim::AgcDone, 0, 2000);
+		m_suspend_point_ready->acquire();
+	}
 	Submission submission;
 	submission.type = SubmissionType::SuspendPoint;
 	Enqueue(std::move(submission));
@@ -522,7 +529,11 @@ bool GuestGpu::Process(Submission& submission) {
 			// Age caches at the frame boundary, not once per command list.
 			m_renderer.RunGarbageCollector();
 			m_renderer.GetCommandScheduler().DeferPriorityOperation(
-			    [ready = m_suspend_point_ready] { ready->release(); });
+			    [ready = m_suspend_point_ready] {
+				    LibKernel::WaitGraph::Signal(ready.get(), 0,
+				                                 "CP : soumissions terminees (AgcSuspendPoint)"); // KYTY_WAIT_GRAPH
+				    ready->release();
+			    });
 			cp.BufferFlush();
 			cp.Reset();
 			break;

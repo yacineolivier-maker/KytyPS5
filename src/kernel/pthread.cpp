@@ -11,6 +11,7 @@
 #include "common/threads.h"
 #include "common/timer.h"
 #include "kernel/memory.h"
+#include "kernel/waitGraph.h" // Astro Bot PC (KYTY_WAIT_GRAPH)
 #include "libs/errno.h"
 #include "libs/libs.h"
 #include "loader/runtimeLinker.h"
@@ -26,6 +27,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <optional>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -1745,6 +1747,8 @@ int KYTY_SYSV_ABI PthreadMutexDestroy(PthreadMutex* mutex) {
 }
 
 int KYTY_SYSV_ABI PthreadMutexLock(PthreadMutex* mutex) {
+	const WaitGraph::WaitScope wait_graph(mutex, WaitGraph::Prim::Mutex, reinterpret_cast<uint64_t>(__builtin_return_address(0)),
+	                                      2000); // Astro Bot PC (KYTY_WAIT_GRAPH): contended only
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -1799,6 +1803,8 @@ int KYTY_SYSV_ABI PthreadMutexTrylock(PthreadMutex* mutex) {
 }
 
 int KYTY_SYSV_ABI PthreadMutexTimedlock(PthreadMutex* mutex, KernelUseconds usec) {
+	const WaitGraph::WaitScope wait_graph(mutex, WaitGraph::Prim::Mutex, reinterpret_cast<uint64_t>(__builtin_return_address(0)),
+	                                      2000); // Astro Bot PC (KYTY_WAIT_GRAPH): contended only
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -1825,6 +1831,7 @@ int KYTY_SYSV_ABI PthreadMutexTimedlock(PthreadMutex* mutex, KernelUseconds usec
 }
 
 int KYTY_SYSV_ABI PthreadMutexUnlock(PthreadMutex* mutex) {
+	WaitGraph::Signal(mutex, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // Astro Bot PC (KYTY_WAIT_GRAPH)
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -2713,6 +2720,7 @@ int KYTY_SYSV_ABI PthreadCondattrSetclock(PthreadCondattr* attr, KernelClockid c
 }
 
 int KYTY_SYSV_ABI PthreadCondBroadcast(PthreadCond* cond) {
+	WaitGraph::Signal(cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // Astro Bot PC (KYTY_WAIT_GRAPH)
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -2803,6 +2811,7 @@ int KYTY_SYSV_ABI PthreadCondInit(PthreadCond* cond, const PthreadCondattr* attr
 }
 
 int KYTY_SYSV_ABI PthreadCondSignal(PthreadCond* cond) {
+	WaitGraph::Signal(cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // Astro Bot PC (KYTY_WAIT_GRAPH)
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -2822,6 +2831,7 @@ int KYTY_SYSV_ABI PthreadCondSignal(PthreadCond* cond) {
 }
 
 int KYTY_SYSV_ABI PthreadCondSignalto(PthreadCond* cond, Pthread thread) {
+	WaitGraph::Signal(cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // Astro Bot PC (KYTY_WAIT_GRAPH)
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -2842,6 +2852,7 @@ int KYTY_SYSV_ABI PthreadCondSignalto(PthreadCond* cond, Pthread thread) {
 
 int KYTY_SYSV_ABI PthreadCondTimedwait(PthreadCond* cond, PthreadMutex* mutex,
                                        KernelUseconds usec) {
+	const WaitGraph::WaitScope wait_graph(cond, WaitGraph::Prim::Cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // KYTY_WAIT_GRAPH
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -2926,6 +2937,7 @@ int KYTY_SYSV_ABI PthreadCondTimedwait(PthreadCond* cond, PthreadMutex* mutex,
 
 int KYTY_SYSV_ABI PthreadCondTimedwaitAbs(PthreadCond* cond, PthreadMutex* mutex,
                                           const KernelTimespec* abstime) {
+	const WaitGraph::WaitScope wait_graph(cond, WaitGraph::Prim::Cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // KYTY_WAIT_GRAPH
 	// PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -3007,6 +3019,7 @@ int KYTY_SYSV_ABI PthreadCondTimedwaitAbs(PthreadCond* cond, PthreadMutex* mutex
 }
 
 int KYTY_SYSV_ABI PthreadCondWait(PthreadCond* cond, PthreadMutex* mutex) {
+	const WaitGraph::WaitScope wait_graph(cond, WaitGraph::Prim::Cond, reinterpret_cast<uint64_t>(__builtin_return_address(0))); // KYTY_WAIT_GRAPH
 	PRINT_NAME();
 
 	auto* pthread_static_objects = g_pthread_context->GetPthreadStaticObjects();
@@ -3630,6 +3643,7 @@ int KYTY_SYSV_ABI PthreadRename(Pthread thread, const char* name) {
 }
 
 void KYTY_SYSV_ABI PthreadYield() {
+	WaitGraph::NoteYield(reinterpret_cast<uint64_t>(__builtin_return_address(0))); // Astro Bot PC (KYTY_WAIT_GRAPH): yield bursts
 	SchedulerBackoffOnce();
 }
 
@@ -3853,6 +3867,15 @@ void KYTY_SYSV_ABI KernelSetThreadDtors(thread_dtors_func_t dtors) {
 }
 
 int KYTY_SYSV_ABI KernelUsleep(KernelUseconds microseconds) {
+	// Astro Bot PC (KYTY_WAIT_GRAPH): a sleep of at most 1 us is part of a yield loop.
+	std::optional<WaitGraph::WaitScope> wait_graph;
+	if (WaitGraph::Enabled()) {
+		if (microseconds <= 1) {
+			WaitGraph::NoteYield(reinterpret_cast<uint64_t>(__builtin_return_address(0)));
+		} else {
+			wait_graph.emplace(nullptr, WaitGraph::Prim::Sleep, reinterpret_cast<uint64_t>(__builtin_return_address(0)));
+		}
+	}
 	SleepMicroWithSignalPoll(microseconds);
 	return OK;
 }
@@ -3879,7 +3902,17 @@ int KYTY_SYSV_ABI KernelNanosleep(const KernelTimespec* rqtp, KernelTimespec* rm
 	uint64_t nanos =
 	    static_cast<uint64_t>(rqtp->tv_sec) * 1000000000ull + static_cast<uint64_t>(rqtp->tv_nsec);
 
-	SleepNanoWithSignalPoll(nanos);
+	{
+		std::optional<WaitGraph::WaitScope> wait_graph; // Astro Bot PC (KYTY_WAIT_GRAPH)
+		if (WaitGraph::Enabled()) {
+			if (nanos <= 1000) {
+				WaitGraph::NoteYield(reinterpret_cast<uint64_t>(__builtin_return_address(0)));
+			} else {
+				wait_graph.emplace(nullptr, WaitGraph::Prim::Sleep, reinterpret_cast<uint64_t>(__builtin_return_address(0)));
+			}
+		}
+		SleepNanoWithSignalPoll(nanos);
+	}
 
 	if (rmtp != nullptr) {
 		rmtp->tv_sec  = 0;
